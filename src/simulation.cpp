@@ -8,6 +8,10 @@
 #include <mutex>
 #include <stdio.h>
 #include <thread>
+#include <iostream>
+
+#include "json.hpp"
+using json = nlohmann::json;
 
 // Define the static constants
 const float targetData::MELTING_POINT = 1500.0f;
@@ -156,3 +160,96 @@ void SimulationInstance::networkThreadFunc() {
 void SimulationInstance::updateParameters(const SimParameters& new_params) {
    params = new_params; 
 }
+
+void SimulationInstance::resetAll() {
+    // Stop networking if running to avoid data races
+    if (network_running) {
+        stopNetworking();
+    }
+
+    // Reset simulation parameters to default
+    params = SimParameters();  // Uses default constructor values from kernel.h
+
+    // Reset particles (set all to inactive with zeroed properties)
+    for (unsigned int i = 0; i < num_particles; i++) {
+        particles[i] = particleData();  // Default constructor sets is_active = false, zeros all arrays
+    }
+
+    // Reset target data (recreate with initial conditions)
+    delete target;  // Clean up old target
+    target = new targetData(300.0f);  // Reset with initial temperature (e.g., 300K ambient)
+
+    // Reset network buffers
+    for (int i = 0; i < 2; i++) {
+        std::lock_guard<std::mutex> lock(network_buffers[i].mutex);
+        // Reset particles in buffer
+        for (unsigned int j = 0; j < num_particles; j++) {
+            network_buffers[i].particles[j] = particleData();
+        }
+        // Reset target in buffer
+        delete[] network_buffers[i].target->voxels;  // Clean up old voxel array
+        network_buffers[i].target->voxels = 
+            new VoxelData[target->voxel_size * target->voxel_size * target->voxel_size];
+        for (size_t j = 0; j < target->voxel_size * target->voxel_size * target->voxel_size; j++) {
+            network_buffers[i].target->voxels[j] = target->voxels[j];  // Copy reset target state
+        }
+        network_buffers[i].ready = false;
+    }
+    current_network_buffer = 0;
+
+    // Sync reset state to CUDA device if initialized
+    resetCudaData(this); 
+
+    // Restart networking if it was running
+    if (visServer) {  // Assuming visServer indicates networking capability
+        startNetworking();
+    }
+}
+
+
+namespace nlohmann {
+   void to_json(nlohmann::json &j, const SimParameters &p) {
+     j = nlohmann::json{
+         {"nozzle_origin",
+          {p.nozzle_origin[0], p.nozzle_origin[1], p.nozzle_origin[2]}},
+         {"nozzle_initial_acceleration",
+          {p.nozzle_initial_acceleration[0], p.nozzle_initial_acceleration[1],
+           p.nozzle_initial_acceleration[2]}},
+         {"nozzle_initial_velocity",
+          {p.nozzle_initial_velocity[0], p.nozzle_initial_velocity[1],
+           p.nozzle_initial_velocity[2]}},
+         {"nozzle_velocity_spread", p.nozzle_velocity_spread},
+         {"nozzle_acceleration_spread", p.nozzle_acceleration_spread},
+         {"nozzle_angle", p.nozzle_angle},
+         {"particle_start_temperature", p.particle_start_temperature},
+         {"particle_end_temperature", p.particle_end_temperature},
+         {"nozzle_angle", p.nozzle_angle}
+     };
+   }
+
+   void from_json(const nlohmann::json &j, SimParameters &p) {
+     auto origin = j.at("nozzle_origin").get<std::vector<float>>();
+     p.nozzle_origin[0] = origin[0];
+     p.nozzle_origin[1] = origin[1];
+     p.nozzle_origin[2] = origin[2];
+
+     auto accel = j.at("nozzle_initial_acceleration").get<std::vector<float>>();
+     p.nozzle_initial_acceleration[0] = accel[0];
+     p.nozzle_initial_acceleration[1] = accel[1];
+     p.nozzle_initial_acceleration[2] = accel[2];
+
+     auto vel = j.at("nozzle_initial_velocity").get<std::vector<float>>();
+     p.nozzle_initial_velocity[0] = vel[0];
+     p.nozzle_initial_velocity[1] = vel[1];
+     p.nozzle_initial_velocity[2] = vel[2];
+
+     j.at("nozzle_velocity_spread").get_to(p.nozzle_velocity_spread);
+     j.at("nozzle_acceleration_spread").get_to(p.nozzle_acceleration_spread);
+     j.at("nozzle_angle").get_to(p.nozzle_angle);
+     j.at("particle_start_temperature").get_to(p.particle_start_temperature);
+     j.at("particle_end_temperature").get_to(p.particle_end_temperature);
+   }
+} // namespace nlohmann
+
+
+

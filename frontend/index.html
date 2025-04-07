@@ -51,15 +51,18 @@
    <div id="ui-panel">
       <h3>Simulation Parameters</h3>
       <form id="param-form">
+         <label for="min-voxel-temperature">Min Voxel Temperature (0-255):</label>
+         <input type="number" id="min-voxel-temperature" min="0" max="255" step="1">
+
          <label>Nozzle Origin (x, y, z):</label><br>
-         <input type="number" step="0.1" id="nozzle-origin-x" value="0.0"><br>
-         <input type="number" step="0.1" id="nozzle-origin-y" value="0.0"><br>
-         <input type="number" step="0.1" id="nozzle-origin-z" value="-2.5"><br>
+         <input type="number" step="0.01" id="nozzle-origin-x" value="0.0"><br>
+         <input type="number" step="0.01" id="nozzle-origin-y" value="0.0"><br>
+         <input type="number" step="0.01" id="nozzle-origin-z" value="-2.5"><br>
 
          <label>Nozzle Initial Velocity (x, y, z):</label><br>
-         <input type="number" step="0.1" id="nozzle-velocity-x" value="0.0"><br>
-         <input type="number" step="0.1" id="nozzle-velocity-y" value="0.0"><br>
-         <input type="number" step="0.1" id="nozzle-velocity-z" value="4.56"><br>
+         <input type="number" step="0.01" id="nozzle-velocity-x" value="0.0"><br>
+         <input type="number" step="0.01" id="nozzle-velocity-y" value="0.0"><br>
+         <input type="number" step="0.01" id="nozzle-velocity-z" value="4.56"><br>
 
          <label>Nozzle Velocity Spread:</label><br>
          <input type="number" step="0.01" id="nozzle-velocity-spread" value="0.4"><br>
@@ -67,7 +70,12 @@
          <label>Nozzle Angle:</label><br>
          <input type="number" step="0.01" id="nozzle-angle" value="0.25"><br>
 
-         <button type="submit">Update Parameters</button>
+         <label>Particle Start/End Temperature</label>
+         <input type="number" step="10" id="particle-start-temperature" value="20000.0"><br>
+         <input type="number" step="10" id="particle-end-temperature" value="9001.0"><br>
+
+         <button id="reset" type="submit">Reset Simulation</button>
+         <button id="update" type="submit">Update Parameters</button>
       </form>
    </div>
    <script src="main.js" type="module"></script>

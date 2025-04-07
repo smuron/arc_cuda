@@ -142,6 +142,8 @@ struct VisualizationServer {
   static int wsCallback(struct lws *wsi, enum lws_callback_reasons reason,
                         void *user, void *in, size_t len);
   void handleWebRTCSignaling(WebRTCPeer &peer, const std::string &message);
+
+  void handleControlMessage(WebRTCPeer& peer, const std::string& data);
   void broadcastParticleData(particleData *particles, int count);
   void broadcastVoxelData(targetData *target);
 

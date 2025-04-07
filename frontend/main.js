@@ -7,6 +7,17 @@ let dataChannel;
 let peerId;
 let pendingCandidates = [];
 let clearedTestData = false;
+var simulationParams = {
+   nozzle_origin: [0.0, 0.0, -2.5],
+   nozzle_initial_acceleration: [0.0, 0.0, 0.0],
+   nozzle_initial_velocity: [0.0, 0.0, 4.56],
+   nozzle_velocity_spread: 0.4,
+   nozzle_acceleration_spread: 0.0,
+   nozzle_angle: 0.25,
+   particle_start_temperature: 20000.0,
+   particle_end_temperature: 9001.0,
+minVoxelTemperature: 16,
+};
 
 ws.onopen = () => {
    console.log("ws onopen");
@@ -160,19 +171,6 @@ ws.onopen = () => {
    }
 };
 
-function sendControlMessage() {
-   if (!dataChannel || dataChannel.readyState !== "open") {
-      console.warning("data channel is not ready for control messages");
-      return;
-   }
-   // get current value of parameters
-   const message = JSON.stringify({
-      type: 3, // CONTROL
-      // parameters
-   });
-   dataChannel.send(message);
-}
-
 function initializeUI() {
    document.getElementById('nozzle-origin-x').value = simulationParams.nozzle_origin[0];
    document.getElementById('nozzle-origin-y').value = simulationParams.nozzle_origin[1];
@@ -182,6 +180,9 @@ function initializeUI() {
    document.getElementById('nozzle-velocity-z').value = simulationParams.nozzle_initial_velocity[2];
    document.getElementById('nozzle-velocity-spread').value = simulationParams.nozzle_velocity_spread;
    document.getElementById('nozzle-angle').value = simulationParams.nozzle_angle;
+
+   document.getElementById('particle-start-temperature').value = simulationParams.particle_start_temperature;
+   document.getElementById('particle-end-temperature').value = simulationParams.particle_end_temperature;
 }
 
 // Update sendControlMessage to use simulationParams
@@ -197,10 +198,26 @@ function sendControlMessage() {
    dataChannel.send(message);
    console.log("Sent control message:", simulationParams);
 }
+function sendResetMessage() {
+   if (!dataChannel || dataChannel.readyState !== "open") {
+      console.warn("Data channel is not ready for control messages");
+      return;
+   }
+   const message = JSON.stringify({
+      type: 4, // CONTROL
+   });
+   dataChannel.send(message);
+   console.log("Sent control message:", simulationParams);
+}
 
 // Handle form submission
 document.getElementById('param-form').addEventListener('submit', (event) => {
    event.preventDefault(); // Prevent page reload
+
+   if (event.submitter.id == "reset") {
+      sendResetMessage();
+      return
+   }
 
    // Update simulationParams with form values
    simulationParams.nozzle_origin[0] = parseFloat(document.getElementById('nozzle-origin-x').value);
@@ -211,6 +228,10 @@ document.getElementById('param-form').addEventListener('submit', (event) => {
    simulationParams.nozzle_initial_velocity[2] = parseFloat(document.getElementById('nozzle-velocity-z').value);
    simulationParams.nozzle_velocity_spread = parseFloat(document.getElementById('nozzle-velocity-spread').value);
    simulationParams.nozzle_angle = parseFloat(document.getElementById('nozzle-angle').value);
+   simulationParams.particle_start_temperature = parseFloat(document.getElementById('particle-start-temperature').value);
+   simulationParams.particle_end_temperature = parseFloat(document.getElementById('particle-end-temperature').value);
+   updateNozzleMarker();
+simulationParams.minVoxelTemperature = parseFloat(document.getElementById('min-voxel-temperature').value);
 
    // Send updated parameters via WebSocket
    sendControlMessage();
@@ -277,9 +298,10 @@ function updateSurfaceVoxels() {
    console.time('Surface Extraction');
    const surfaceVoxels = [];
    function isSurfaceVoxel(x, y, z) {
-      if (voxelDensity[x + y * voxelSize + z * voxelSize * voxelSize] <= 0) return false;
-      if (x === 0 || x === voxelSize - 1 || y === 0 || y === voxelSize - 1 || z === 0 || z === voxelSize - 1) return true;
       const idx = x + y * voxelSize + z * voxelSize * voxelSize;
+      if (voxelDensity[idx] <= 0) return false;
+      if (voxelTemperature[idx] < simulationParams.minVoxelTemperature) return false;
+      if (x === 0 || x === voxelSize - 1 || y === 0 || y === voxelSize - 1 || z === 0 || z === voxelSize - 1) return true;
       return (
          voxelDensity[idx - 1] <= 0 ||
          voxelDensity[idx + 1] <= 0 ||
@@ -398,7 +420,27 @@ particleGeometry.setAttribute('velocity', new THREE.BufferAttribute(particleVelo
 const particles = new THREE.Points(particleGeometry, particleMaterial);
 scene.add(particles);
 
+// After scene setup (after const controls = new OrbitControls...)
+const nozzleMarkerGeometry = new THREE.SphereGeometry(0.05, 16, 16); // Small sphere, radius 0.05
+const nozzleMarkerMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 }); // Yellow
+const nozzleMarker = new THREE.Mesh(nozzleMarkerGeometry, nozzleMarkerMaterial);
+scene.add(nozzleMarker);
+
+// Function to update nozzle marker position
+function updateNozzleMarker() {
+   nozzleMarker.position.set(
+      simulationParams.nozzle_origin[0],
+      simulationParams.nozzle_origin[1],
+      simulationParams.nozzle_origin[2]
+   );
+}
+
+// Call this initially to set the starting position
+updateNozzleMarker();
+
 // Camera position
+camera.position.x = 1;
+camera.position.y = 1;
 camera.position.z = 5;
 
 updateSurfaceVoxels();

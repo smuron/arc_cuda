@@ -264,18 +264,16 @@ voxel_traverse(const VoxelData *voxels, const float3 &origin,
 }
 const float PARTICLE_SPECIFIC_HEAT = 2.0f; // or whatever
 const float PARTICLE_MASS = 1e-4f;         // very small mass
-const float PARTICLE_START_TEMPERATURE = 25000.0f;
-const float PARTICLE_END_TEMPERATURE = 9001.0f;
 const float TARGET_MELTING_POINT = 1500.0f;
 const float TARGET_HEAT_CAPACITY = 0.4f;
 const float TARGET_HEAT_DISSIPATION = 0.222f;
 
-__device__ float calculateParticleTemperature(float lifetime) {
-  return PARTICLE_START_TEMPERATURE * (1.0f - lifetime) +
-         PARTICLE_END_TEMPERATURE * lifetime;
+__device__ float calculateParticleTemperature(SimParameters params, float lifetime) {
+  return params.particle_start_temperature * (1.0f - lifetime) +
+         params.particle_end_temperature * lifetime;
 }
 
-__device__ float calculateParticleEnergy(float mass, float3 velocity,
+__device__ float calculateParticleEnergy(SimParameters params, float mass, float3 velocity,
                                          float temperature) {
   float kinetic = 0.5f * mass *
                   (velocity.x * velocity.x + velocity.y * velocity.y +
@@ -307,7 +305,7 @@ __device__ void applyDamage(VoxelData *voxels, int idx, float damage,
 }
 
 __global__ void particle_update(particleData *particles, int particle_count,
-                                targetData *target, float delta_time) {
+                                targetData *target, float delta_time, SimParameters params) {
   int grid_size = target->voxel_size;
   int3 grid_size3 = make_int3(grid_size, grid_size, grid_size);
   VoxelData *voxels = target->voxels;
@@ -331,9 +329,9 @@ __global__ void particle_update(particleData *particles, int particle_count,
     target->voxels[voxel_idx].dirty = true;
 
     // printf("hit %ul", voxel_idx);
-    float particle_energy = calculateParticleEnergy(
+    float particle_energy = calculateParticleEnergy(params,
         PARTICLE_MASS, vel,
-        calculateParticleTemperature(particles[i].lifetime));
+        calculateParticleTemperature(params, particles[i].lifetime));
     const float DAMAGE_FACTOR = 0.01f;
     float damage = particle_energy * DAMAGE_FACTOR;
     applyDamage(voxels, voxel_idx, damage, particle_energy);
@@ -480,7 +478,7 @@ extern "C" void computeAndRenderSimulation(SimulationInstance *sim,
   particle_update<<<sim->cuda_data->blocksPerGrid,
                     sim->cuda_data->threadsPerBlock>>>(
       sim->cuda_data->particlesDevice, sim->num_particles,
-      sim->cuda_data->targetDevice, delta_time);
+      sim->cuda_data->targetDevice, delta_time, sim->params);
   CHECK_CUDA_ERROR(cudaGetLastError(), "after kernel last error check");
   CHECK_CUDA_ERROR(cudaDeviceSynchronize(), "device sync");
 
@@ -550,4 +548,29 @@ extern "C" void cudaParticlesToHost(particleData *host_particles,
                               sim->num_particles * sizeof(particleData),
                               cudaMemcpyDeviceToHost),
                    "memcpy particles D2H");
+}
+
+
+extern "C" void resetCudaData(SimulationInstance *sim) {
+   SimulationInstance::CUDAData* cuda_data = sim->cuda_data;
+   targetData* target = sim->target;
+   particleData* particles = sim->particles; 
+   if (cuda_data) {
+        // Copy reset particle data to device
+        CHECK_CUDA_ERROR(cudaMemcpy(cuda_data->particlesDevice, particles,
+                                   sim->num_particles * sizeof(particleData),
+                                   cudaMemcpyHostToDevice),
+                        "memcpy particles H2D during reset");
+
+        // Copy reset target data to device
+        targetData hostTargetCopy = targetData(target);
+        hostTargetCopy.voxels = cuda_data->targetVoxelsDevice;  // Point to device memory
+        CHECK_CUDA_ERROR(cudaMemcpy(cuda_data->targetDevice, &hostTargetCopy,
+                                   sizeof(targetData), cudaMemcpyHostToDevice),
+                        "memcpy target H2D during reset");
+        CHECK_CUDA_ERROR(cudaMemcpy(cuda_data->targetVoxelsDevice, target->voxels,
+                                   target->voxel_size * target->voxel_size * target->voxel_size * sizeof(VoxelData),
+                                   cudaMemcpyHostToDevice),
+                        "memcpy voxels H2D during reset");
+    }
 }

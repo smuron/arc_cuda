@@ -10,6 +10,7 @@
 
 #include "json.hpp"
 #include "kernel.h"
+#include "simulation.h"
 #include <libwebsockets.h>
 
 using json = nlohmann::json;
@@ -259,7 +260,7 @@ void VisualizationServer::handleWebRTCSignaling(WebRTCPeer &peer,
 
     peer.data_channel->onOpen([]() { std::cout << "Data channel opened\n"; });
     peer.data_channel->onMessage(
-        [&peer, this](const std::variant<std::string, rtc::binary> &msg) {
+        [&peer, this](const rtc::message_variant &msg) {
           if (std::holds_alternative<rtc::binary>(msg)) {
             const rtc::binary &binary_data = std::get<rtc::binary>(msg);
             if (binary_data.size() < sizeof(PacketHeader)) {
@@ -276,15 +277,12 @@ void VisualizationServer::handleWebRTCSignaling(WebRTCPeer &peer,
             case PACKET_VOXELS:
               // Already handled elsewhere
               break;
-            case PACKET_CONTROL:
-              handleControlMessage(peer, binary_data);
-              break;
             default:
               std::cerr << "Unknown packet type: " << header->type << std::endl;
             }
           } else {
-            std::cerr << "Received unexpected string message on data channel"
-                      << std::endl;
+            const std::string &string_data = std::get<std::string>(msg);
+            handleControlMessage(peer, string_data);
           }
         });
   } else if (type == "ice_candidate") {
@@ -294,26 +292,22 @@ void VisualizationServer::handleWebRTCSignaling(WebRTCPeer &peer,
   }
 }
 
-void VisualizationServer::handleControlMessage(WebRTCPeer& peer, const rtc::binary& data) {
-    const PacketHeader* header = reinterpret_cast<const PacketHeader*>(data.data());
-    if (data.size() < sizeof(PacketHeader)) {
-        std::cerr << "Control packet too small" << std::endl;
-        return;
-    }
-
-    // Extract the JSON payload after the header
-    const char* json_data = reinterpret_cast<const char*>(data.data() + sizeof(PacketHeader));
-    size_t json_len = data.size() - sizeof(PacketHeader);
+void VisualizationServer::handleControlMessage(WebRTCPeer& peer, const std::string& data) {
 
     try {
-        json j = json::parse(std::string(json_data, json_len));
-        std::cout << "Received control message from peer " << *peer.id << ": " << j.dump() << std::endl;
+        json j = json::parse(data);
 
         // Example: Handle specific parameters
-        if (j.contains("parameters")) {
-            SimParameters params = j["parameters"];
-            std::cout << "Control parameters: " << params.dump() << std::endl;
+        if (j.at("type").get<int>() == 3) {
+            // Extract and deserialize the "parameters" field into SimParameters
+            SimParameters params = j.at("parameters").get<SimParameters>();
+            
+            // Print the parameters using the output operator
+            std::cout << "Control parameters: " << params << std::endl;
             sim->updateParameters(params);
+        } else if (j.at("type").get<int>() == 4) {
+            // reset the sim
+           sim->resetAll();
         }
     } catch (const std::exception& e) {
         std::cerr << "Failed to parse control message: " << e.what() << std::endl;

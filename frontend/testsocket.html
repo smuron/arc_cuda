@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <script>
+        const ws = new WebSocket('ws://192.168.1.86:8080');
+        ws.onopen = () => console.log('Connected to WebSocket');
+        ws.onerror = (error) => console.error('WebSocket error:', error);
+        ws.onclose = (event) => console.log('WebSocket closed:', event.code, event.reason);
+        ws.onmessage = (event) => console.log('Message:', event.data);
+    </script>
+</body>
+</html>

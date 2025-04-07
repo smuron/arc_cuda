@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@v0.149.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@v0.149.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+   #ui-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 15px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      font-family: Arial, sans-serif;
+   }
+   #ui-panel h3 {
+      margin: 0 0 10px 0;
+   }
+   #ui-panel label {
+      font-size: 14px;
+      margin-top: 5px;
+      display: block;
+   }
+   #ui-panel input {
+      width: 80px;
+      margin: 5px 0;
+   }
+   #ui-panel button {
+      margin-top: 15px;
+      padding: 5px 10px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+   }
+   #ui-panel button:hover {
+      background: #0056b3;
+   }
+</style>
+</head>   
+<body>
+   <div id="app"></div>
+   <div id="ui-panel">
+      <h3>Simulation Parameters</h3>
+      <form id="param-form">
+         <label>Nozzle Origin (x, y, z):</label><br>
+         <input type="number" step="0.1" id="nozzle-origin-x" value="0.0"><br>
+         <input type="number" step="0.1" id="nozzle-origin-y" value="0.0"><br>
+         <input type="number" step="0.1" id="nozzle-origin-z" value="-2.5"><br>
+
+         <label>Nozzle Initial Velocity (x, y, z):</label><br>
+         <input type="number" step="0.1" id="nozzle-velocity-x" value="0.0"><br>
+         <input type="number" step="0.1" id="nozzle-velocity-y" value="0.0"><br>
+         <input type="number" step="0.1" id="nozzle-velocity-z" value="4.56"><br>
+
+         <label>Nozzle Velocity Spread:</label><br>
+         <input type="number" step="0.01" id="nozzle-velocity-spread" value="0.4"><br>
+
+         <label>Nozzle Angle:</label><br>
+         <input type="number" step="0.01" id="nozzle-angle" value="0.25"><br>
+
+         <button type="submit">Update Parameters</button>
+      </form>
+   </div>
+   <script src="main.js" type="module"></script>
+</body>
+</html>
+

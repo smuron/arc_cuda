@@ -16,7 +16,7 @@ var simulationParams = {
    nozzle_angle: 0.25,
    particle_start_temperature: 20000.0,
    particle_end_temperature: 9001.0,
-minVoxelTemperature: 16,
+minVoxelTemperature: 32,
 };
 
 ws.onopen = () => {

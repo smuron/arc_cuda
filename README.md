@@ -3,11 +3,15 @@
 An approximate / very arcade-like particle heat simulation, based on discussions with an LLM about how plasma cutting works.
 
 
+# Demonstration Video
+
+https://youtu.be/TWe5m8YjZJM
 
 ## Requirements
 - CUDA (anything should work, tested with 12.x)
 - libwebsockets
 - libdatachannel
+- nlohmann's json library
 
 
 ## Usage

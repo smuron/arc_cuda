@@ -1,6 +1,14 @@
-# gol_cuda
+# arc_cuda
 
-An implementation of Conway's Game of Life in CUDA and rendered onto a cube's faces using the CUDA-OpenGL interoperation API.
+An approximate / very arcade-like particle heat simulation, based on discussions with an LLM about how plasma cutting works.
+
+
+
+## Requirements
+- CUDA (anything should work, tested with 12.x)
+- libwebsockets
+- libdatachannel
+
 
 ## Usage
 
@@ -9,8 +17,10 @@ mkdir build
 cd build
 cmake ..
 make
-./gol_cuda
+./arc_cuda
 ```
+
+Then serve the frontend (e.g. `python -m http.server`) and open index.html. Make sure to tailor the hardcoded IP to your network setup depending on where the server is being run.
 
 ## LICENSE
 
